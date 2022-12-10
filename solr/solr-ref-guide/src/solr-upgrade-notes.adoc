@@ -1,0 +1,103 @@
+= Solr Upgrade Notes
+:page-children: major-changes-in-solr-8, major-changes-in-solr-7, major-changes-from-solr-5-to-solr-6
+:page-toclevels: 3
+:page-tocclass: right
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+The following notes describe changes to Solr in recent releases that you should be aware of before upgrading.
+
+These notes highlight the biggest changes that may impact the largest number of implementations. It is not a comprehensive list of all changes to Solr in any release.
+
+When planning your Solr upgrade, consider the customizations you have made to your system and review the {solr-javadocs}/changes/Changes.html[`CHANGES.txt`] file found in your Solr package. That file includes all the changes and updates that may effect your existing implementation.
+
+Detailed steps for upgrading a Solr cluster are in the section <<upgrading-a-solr-cluster.adoc#upgrading-a-solr-cluster,Upgrading a Solr Cluster>>.
+
+== Upgrading to 8.x Releases
+
+If you are upgrading from 7.x, see the section <<Upgrading from 7.x Releases>> below.
+
+=== Solr 8.1
+
+See the https://wiki.apache.org/solr/ReleaseNote810[8.1 Release Notes] for an overview of the main new features of Solr 8.1.
+
+When upgrading to 8.1.x, users should be aware of the following major changes from v8.0.
+
+*Global maxBooleanClauses Parameter*
+
+* The behavior of the `maxBooleanClauses` parameter has changed to reduce the risk of exponential query expansion when dealing with pathological query strings.
++
+A default upper limit of 1024 clauses is now enforced at the node level. This was the default prior to 7.0, and it can be overridden with a new global parameter in `solr.xml`. This limit will be enforced for all queries whether explicitly defined by the user (or client), or created by Solr and Lucene internals.
++
+An identical parameter is available in `solrconfig.xml` for limiting the size of queries explicitly defined by the user (or client), but this per-collection limit will still be restricted by the global limit set in `solr.xml`.
++
+If your use case demands that you a lot of OR or AND clauses in your queries, upon upgrade to 8.1 you may need to adjust the global `maxBooleanClauses` parameter since between 7.0 and 8.1 the limit was effectively unbounded.
++
+For more information about the new parameter, see the section <<format-of-solr-xml.adoc#global-maxbooleanclauses,Format of solr.xml: maxBooleanClauses>>.
+
+*Security*
+
+* JSON Web Tokens (JWT) are now supported for authentication. These allow Solr to assert a user is already authenticated via an external identity provider, such as an OpenID Connect-enabled IdP. For more information, see the section <<jwt-authentication-plugin.adoc#jwt-authentication-plugin,JWT Authentication Plugin>>.
+
+* A new security plugin for audit logging has been added. A default class `SolrLogAuditLoggerPlugin` is available and configurable in `security.json`. The base class is also extendable for adding custom audit plugins if needed. See the section <<audit-logging.adoc#audit-logging,Audit Logging>> for more information.
+
+*Collections API*
+
+* The output of the REQUESTSTATUS command in the Collections API will now include internal asynchronous requests (if any) in the "success" or "failed" keys.
+
+* The CREATE command will now return the appropriate status code (4xx, 5xx, etc.) when the command has failed. Previously, it always returned `0`, even in failure.
+
+* The MODIFYCOLLECTION command now accepts an attribute to set a collection as read-only. This can be used to block a collection from receiving any updates while still allowing queries to be served. See the section <<collection-management.adoc#modifycollection,MODIFYCOLLECTION>> for details on how to use it.
+
+* A new command RENAME allows renaming a collection by setting up a one-to-one alias using the new name. For more information, see the section <<collection-management.adoc#rename,RENAME>>.
+
+* A new command REINDEXCOLLECTION allows indexing existing stored fields from a source collection into a new collection. For more information, please see the section <<collection-management.adoc#reindexcollection,REINDEXCOLLECTION>>.
+
+*Logging*
+
+* The default Log4j2 logging mode has been changed from synchronous to asynchronous. This will improve logging throughput and reduce system contention at the cost of a _slight_ chance that some logging messages may be missed in the event of abnormal Solr termination.
++
+If even this slight risk is unacceptable, the Log4j configuration file found in `server/resources/log4j2.xml` has the synchronous logging configuration in a commented section and can be edited to re-enable synchronous logging.
+
+*Metrics*
+
+* The SolrGangliaReporter has been removed from Solr. The metrics library used by Solr, Dropwizard Metrics, was updated to version 4, and Ganglia support was removed from it due to a dependency on the LGPL license.
+
+*Browse UI (Velocity)*
+
+* Velocity and Velocity Tools were both upgraded as part of this release. Velocity upgraded from 1.7 to 2.0. Please see https://velocity.apache.org/engine/2.0/upgrading.html about upgrading. Velocity Tools upgraded from 2.0 to 3.0. For more details, please see https://velocity.apache.org/tools/3.0/upgrading.html for details about the upgrade.
+
+*Default Garbage Collector (GC)*
+
+* Solr's default GC has been changed from CMS to G1. If you prefer to use CMS or any other GC method, you can modify the `GC_TUNE` section of `solr.in.sh` (*nix) or `solr.in.cmd` (Windows).
+
+
+== Upgrading from 7.x Releases
+
+The upgrade from 7.x to Solr 8.0 introduces several major changes that you should be aware of before upgrading.
+These changes are described in the section <<major-changes-in-solr-8.adoc#major-changes-in-solr-8,Major Changes in Solr 8>>. It's strongly recommended that you do a thorough review of that section before starting your upgrade.
+
+[NOTE]
+If you run in SolrCloud mode, you must be on Solr version 7.3 or higher in order to upgrade to 8.x.
+
+== Upgrading from Pre-7.x Versions
+
+Users upgrading from versions of Solr prior to 7.x are strongly encouraged to consult {solr-javadocs}/changes/Changes.html[`CHANGES.txt`] for the details of _all_ changes since the version they are upgrading from.
+
+The upgrade from Solr 6.x to Solr 7.0 introduced several *major* changes that you should be aware of before upgrading. Please do a thorough review of the section <<major-changes-in-solr-7.adoc#major-changes-in-solr-7,Major Changes in Solr 7>> before starting your upgrade.
+
+A summary of the significant changes between Solr 5.x and Solr 6.0 is in the section <<major-changes-from-solr-5-to-solr-6.adoc#major-changes-from-solr-5-to-solr-6,Major Changes from Solr 5 to Solr 6>>.
